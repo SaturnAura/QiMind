@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QiMind 棋思 · 象棋正着讲解</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">棋</span>
+      <div class="brand-text">
+        <h1>QiMind · 棋思</h1>
+        <p>象棋引擎 + DeepSeek：把「正着」讲成人话</p>
+      </div>
+    </div>
+    <div class="status" id="engineStatus">正在检测引擎…</div>
+  </header>
+
+  <main class="layout">
+    <!-- 左：棋盘 -->
+    <section class="panel board-panel">
+      <canvas id="board" width="492" height="546"></canvas>
+
+      <div class="board-toolbar">
+        <button class="btn active" id="btnModeStudy">📖 棋谱讲解</button>
+        <button class="btn" id="btnModePractice">⚔ 人机对练</button>
+      </div>
+
+      <div class="board-toolbar">
+        <button class="btn" id="btnFirst" title="回到开局">⏮ 开局</button>
+        <button class="btn" id="btnPrev" title="上一步">◀ 上一步</button>
+        <button class="btn" id="btnNext" title="下一步">下一步 ▶</button>
+        <button class="btn" id="btnLast" title="跳到末步">末步 ⏭</button>
+        <button class="btn ghost" id="btnFlip">翻转棋盘</button>
+      </div>
+
+      <div class="board-toolbar">
+        <label class="switch">
+          <input type="checkbox" id="chkFree" />
+          <span>自由摆子（可任意走子后提问）</span>
+        </label>
+        <button class="btn" id="btnEngineHere">跑引擎分析</button>
+        <button class="btn primary" id="btnAnalyzeHere">引擎 + 讲解</button>
+      </div>
+
+      <div class="position-meta" id="positionMeta"></div>
+    </section>
+
+    <!-- 中：走法列表 -->
+    <section class="panel moves-panel">
+      <h2>走法列表</h2>
+      <div class="hint" id="recordMeta"></div>
+      <div class="moves-list" id="movesList">
+        <p class="hint">还没有载入棋谱。右侧可以载入示例、PGN 或 XQF 文件。</p>
+      </div>
+    </section>
+
+    <!-- 右：载入 + 讲解 -->
+    <section class="panel side-panel">
+      <div class="card">
+        <h2>1. 载入棋谱</h2>
+        <div class="row">
+          <select id="sampleSelect"><option value="">选择示例棋谱…</option></select>
+          <button class="btn" id="btnLoadSample">载入</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnBrowse">📂 浏览…</button>
+          <input type="text" id="pathInput" placeholder="或填写棋谱文件绝对路径，如 D:\棋谱\对局.pgn" />
+          <button class="btn" id="btnLoadPath">载入</button>
+        </div>
+        <input type="file" id="fileInput" accept=".pgn,.xqf,.cbf,.cbr,.txt" style="display:none" />
+        <div class="hint" id="browseStatus"></div>
+        <textarea id="pgnInput" rows="3" placeholder="也可以直接粘贴 PGN 棋谱文本（含 [FEN] 头则按残局处理）"></textarea>
+        <div class="row">
+          <button class="btn" id="btnLoadPgn">载入粘贴内容</button>
+          <button class="btn ghost" id="btnLoadStart">用初始局面开始</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2. 分析设置</h2>
+        <div class="grid2">
+          <label>搜索深度 <b id="depthValue">16</b>
+            <input type="range" id="depth" min="8" max="24" step="2" value="16" />
+          </label>
+          <label>候选步数 <b id="multipvValue">4</b>
+            <input type="range" id="multipv" min="1" max="8" step="1" value="4" />
+          </label>
+          <label>讲解范围
+            <select id="scope">
+              <option value="all">全部走法</option>
+              <option value="red">只讲红方</option>
+              <option value="black">只讲黑方</option>
+              <option value="key">只讲关键步</option>
+            </select>
+          </label>
+          <label>讲解风格
+            <select id="style">
+              <option value="棋友">棋友</option>
+              <option value="入门">入门</option>
+              <option value="进阶">进阶</option>
+            </select>
+          </label>
+          <label>模型
+            <select id="model">
+              <option value="deepseek-flash">deepseek-flash（快）</option>
+              <option value="deepseek-v4-pro">deepseek-v4-pro（强）</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnAnalyzeGameEngine">引擎分析整局</button>
+          <button class="btn" id="btnAnalyzeGameLlm">DeepSeek 讲解整局</button>
+          <button class="btn primary" id="btnAnalyzeGame">引擎 + 讲解整局</button>
+        </div>
+        <div class="row">
+          <button class="btn ghost" id="btnCancel" disabled>取消</button>
+        </div>
+        <p class="hint">「只跑引擎」不消耗 DeepSeek 额度；「只讲 DeepSeek」复用已算过的引擎结果。</p>
+        <div class="progress" id="progressWrap" hidden>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress-text" id="progressText"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3. 正着与讲解</h2>
+        <div class="row">
+          <button class="btn" id="btnEngineOnlyHere">只跑引擎</button>
+          <button class="btn" id="btnLlmOnlyHere">只讲 DeepSeek</button>
+          <button class="btn ghost" id="btnReExplain">重新生成讲解</button>
+        </div>
+        <div id="moveHeader" class="move-header">点击走法列表中的任意一步，或直接提问当前局面。</div>
+        <div id="candidates" class="candidates"></div>
+        <div id="explanation" class="explanation">
+          <p class="hint">还没有讲解内容。</p>
+        </div>
+        <div id="variationBox" class="variation" hidden></div>
+        <div class="row">
+          <button class="btn" id="btnExportMd">导出讲评稿 Markdown</button>
+          <button class="btn" id="btnExportDocx">导出讲评稿 Word</button>
+        </div>
+        <details id="factBox" class="facts" hidden>
+          <summary>查看引擎事实清单（喂给 DeepSeek 的原始数据）</summary>
+          <pre id="factText"></pre>
+        </details>
+      </div>
+
+      <div class="card" id="practiceCard">
+        <h2>4. 人机对练（只和引擎下，不调用 DeepSeek）</h2>
+        <div class="grid2">
+          <label>我执
+            <select id="practiceSide">
+              <option value="red">红方（先行）</option>
+              <option value="black">黑方（后行）</option>
+            </select>
+          </label>
+          <label>引擎强度
+            <select id="practiceLevel"></select>
+          </label>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnPracticeNew">开始对练</button>
+          <button class="btn" id="btnPracticeUndo">悔棋</button>
+          <button class="btn" id="btnPracticeResign">认输</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnPracticeExport">导出 PGN</button>
+          <button class="btn" id="btnPracticeSave">保存到磁盘</button>
+          <button class="btn" id="btnPracticeStudy">保存并去讲解</button>
+        </div>
+        <div class="hint" id="practiceStatus">选择执子与强度，点「开始对练」。下完可以导出棋谱，再拿去讲解。</div>
+      </div>
+
+      <div class="card">
+        <h2>5. 对局报告（开局 / 转折点 / 致命失误）</h2>
+        <div class="row">
+          <button class="btn primary" id="btnReport">生成对局报告</button>
+          <label class="switch">
+            <input type="checkbox" id="chkReportLlm" checked />
+            <span>调用 DeepSeek 写讲评</span>
+          </label>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnReportMd">导出报告 Markdown</button>
+          <button class="btn" id="btnReportDocx">导出报告 Word</button>
+        </div>
+        <div class="progress" id="reportProgress" hidden>
+          <div class="progress-bar"><div class="progress-fill" id="reportFill"></div></div>
+          <div class="progress-text" id="reportText"></div>
+        </div>
+        <div id="reportBox" class="report">
+          <p class="hint">先分析整局（或载入已分析的棋谱），再点「生成对局报告」，会给出开局判断、形势转折与失误统计。</p>
+        </div>
+      </div>
+
+      <div class="card" id="keyCard">
+        <h2>6. DeepSeek API Key</h2>
+        <div class="row">
+          <input type="password" id="keyInput" placeholder="粘贴你的 DeepSeek API Key（sk-…）" autocomplete="off" />
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnSaveKey">保存</button>
+          <button class="btn" id="btnTestKey">测试连接</button>
+          <button class="btn ghost" id="btnClearKey">清除</button>
+        </div>
+        <div class="hint" id="keyStatus">正在读取…</div>
+        <div class="hint" id="keyHint">
+          只在深度讲解（「引擎 + 讲解」「只讲 DeepSeek」「生成对局报告」的讲评部分）时才会用到；
+          只跑引擎不需要 Key。Key 保存在本机 <code>qimind/data/secrets.json</code>，不会上传到任何第三方。
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

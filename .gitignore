@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# QiMind 本地数据（缓存与凭据）
+qimind/data/secrets.json
+qimind/data/cache/
+qimind/data/settings.json
+qimind/data/practice/
+qimind/data/uploads/
+qimind/data/exports/
+_probe/
